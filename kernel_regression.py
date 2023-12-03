@@ -20,7 +20,7 @@ def K_LR(data2, tk, l):
 
     return Kernel(data2, data2, tk, l)
     
-def solve_v_kernel (ret, lambda1, data, f_list, N, Omega, tk, l):
+def solve_v_kernel (ret, lambda1, data, f_list, N, Omega, K):
     #f is a list
     #compute Q matrix
     T=len(data)
@@ -30,42 +30,46 @@ def solve_v_kernel (ret, lambda1, data, f_list, N, Omega, tk, l):
 
     for t in range(0,T-1):
         for s in range(0,T-1):
-            Q[t*100:(t+1)*100,s*100:(s+1)*100]=A[t,s]*Kernel(np.array(data[t].values), np.array(data[s].values), tk, l)
-    
+            Q[t*100:(t+1)*100,s*100:(s+1)*100]=A[t,s]*K[t*100:(t+1)*100,s*100:(s+1)*100]
     v=np.linalg.solve(Q+lambda1*Omega, R)
-    return v
 
-def solve_g_kernel(data, f_list, v, args, tk, l):
+    return v, Q
+
+def solve_g_kernel(data, f_list, v, args, t, K):
+
     T=len(data)
     g=np.zeros([np.array(args).shape[0], len(f_list[0])])
 
     for s in range(0,T-1):
-        g=g+(Kernel(args, data[s].values, tk, l)@v[s*100:(s+1)*100]).reshape(-1,1)@f_list[s].reshape(1,-1) #remember that f_list[s] is F_{s+1} 
+        g=g+(K[t*100:(t+1)*100,s*100:(s+1)*100]@v[s*100:(s+1)*100]).reshape(-1,1)@f_list[s].reshape(1,-1) #remember that f_list[s] is F_{s+1} 
     
     return g
 
-def Gram_matrix(data,v, f_list, idx, tk, l):
-    g=solve_g_kernel(data, f_list, v, data[idx].values, tk, l)
+def Gram_matrix(data,v, f_list, t, K):
+
+    g=solve_g_kernel(data, f_list, v, data[t].values, t, K)
+
     return g@g.T
 
-def solve_f(ret, v, lambda2, data, f_list, Omega, tk, l):
+def solve_f(ret, v, lambda2, data, f_list, Omega, K):
     T=len(data)
     f_list_new=[]
 
     for t in range(0,T-1):
-        c = np.linalg.solve(Gram_matrix(data, v, f_list, t, tk, l)+lambda2*Omega, ret[t+1])
-        f_list_new.append(solve_g_kernel(data, f_list, v, data[t].values, tk, l).T@c)
+        c = np.linalg.solve(Gram_matrix(data, v, f_list, t, K)+lambda2*Omega, ret[t+1])
+        f_list_new.append(solve_g_kernel(data, f_list, v, data[t].values, t, K).T@c)
     f_list=f_list_new.copy()
+
     return f_list
 
-def kernel_regression(data, ret, f_list, lambda1, lambda2, Omega1, Omega2, max_iter, N, tk, l):
+def kernel_regression(data, ret, f_list, lambda1, lambda2, Omega1, Omega2, max_iter, N, K):
     
     for i in range(max_iter):
         print(i)
-        v = solve_v_kernel(ret, lambda1, data, f_list, N, Omega1, tk, l)
-        f_list = solve_f(ret, v, lambda2, data, f_list, Omega2, tk, l)
+        v, Q = solve_v_kernel(ret, lambda1, data, f_list, N, Omega1, K)
+        f_list = solve_f(ret, v, lambda2, data, f_list, Omega2, K)
 
-    return f_list, v
+    return f_list, v, Q
 
 def pivoted_chol(K, m_hat):
 
@@ -92,55 +96,61 @@ def pivoted_chol(K, m_hat):
         l = np.sqrt(1/d_max) * (K-L@L.T)@e
         b = np.sqrt(1/d_max) * (np.eye(len(K))-B@L.T)@e
 
-        L = np.concatenate((L,l), axis = 1)
+        L = np.concatenate((L, l), axis = 1)
         B = np.concatenate((B, b), axis = 1)
 
         d = d-l*l
 
     return L,B
 
-def solve_v_LR(data, data2, B, ret, f_list, K, lambda1, Omega, m_hat, tk, l):
+def solve_v_LR(data, B, ret, f_list, K, lambda1, Omega, m_hat):
 
-    rhs = np.sum([np.kron(B.T@Kernel(data[i].values, data2, tk, l).T@Omega@(B.T@Kernel(data[i].values, data2, tk, l).T).T, 
+    rhs = np.sum([np.kron(B.T@K[i*100:(i+1)*100,:].T@Omega@(B.T@K[i*100:(i+1)*100,:].T).T, 
                         f_list[i].reshape(-1,1)@f_list[i].reshape(1,-1)) for i in range(len(data)-1)], 
                         axis=0) + lambda1*np.eye(m_hat*len(f_list[0]))
 
-    lhs = np.sum([np.kron(B.T@Kernel(data[i].values, data2, tk, l).T@Omega,f_list[i].reshape((-1,1)))@ret[i+1] 
+    lhs = np.sum([np.kron(B.T@K[i*100:(i+1)*100,:].T@Omega,f_list[i].reshape((-1,1)))@ret[i+1] 
                 for i in range(len(data)-1)], axis=0)
 
     v = np.linalg.solve(rhs, lhs)
 
     return v
 
-def solve_g_kernel_LR(data2, B, v, args, tk, l):
+def solve_g_kernel_LR(B, v, t, K, N):
 
-    return (B.T@Kernel(args, data2, tk, l).T).T@v.reshape(-1,5)
+    v_mat = v.reshape(-1,5)
 
-def gram_matrix_LR(data, data2, B, idx, v, tk, l):
+    g = np.zeros((N, v_mat.shape[1]))
 
-    g = solve_g_kernel_LR(data2, B, v, data[idx].values, tk, l)
+    for i in range(B.shape[1]):
+        g += (B.T@K[t*100:(t+1)*100,:].T)[i,:].reshape(-1,1)@v_mat[i,:].reshape(1,-1)
+
+    return g
+
+def gram_matrix_LR(B, v, t, K, N):
+
+    g = solve_g_kernel_LR(B, v, t, K, N)
+
     return g@g.T
 
-def solve_f_LR(ret, v, data2, B, lambda2, data, f_list, Omega, tk, l):
+def solve_f_LR(ret, v, B, lambda2, data, Omega, K, N):
     
     T = len(data)
     f_list_new = []
 
     for t in range(T-1):
-        c = np.linalg.solve(gram_matrix_LR(data, data2, B, t, v, tk, l)+lambda2*Omega, ret[t+1])
-        f_list_new.append(solve_g_kernel_LR(data2, B, v, data[t].values, tk, l).T@c)
-    f_list = f_list_new.copy()
-    return f_list
+        c = np.linalg.solve(gram_matrix_LR(B, v, t, K, N)+lambda2*Omega, ret[t+1])
+        f_list_new.append(solve_g_kernel_LR(B, v, t, K, N).T@c)
 
-def kernel_regression_LR(data, data2, K, B, ret, f_list, lambda1, lambda2, Omega, max_iter, m_hat, tk, l):
+    return f_list_new
+
+def kernel_regression_LR(data, K, B, ret, f_list, lambda1, lambda2, Omega, max_iter, m_hat, N):
 
     for i in range(max_iter):
         print(i)
-        v = solve_v_LR(data, data2, B, ret, f_list, K, lambda1, Omega, m_hat, tk, l)
-        f_list = solve_f_LR(ret, v, data2, B, lambda2, data, f_list, Omega, tk, l)
+        v = solve_v_LR(data, B, ret, f_list, K, lambda1, Omega, m_hat)
+        f_list = solve_f_LR(ret, v, B, lambda2, data, Omega, K, N)
 
     return f_list, v
-
-
 
     

@@ -24,3 +24,25 @@ def pred_R_squared(ret, data, gamma, f_list):
             ret_2 += ret[t+1].iloc[i]**2
     
     return 1 - sum/ret_2
+
+def total_R_squared_kr(ret, Q, v):
+
+    R = np.array(ret[1:]).flatten()
+
+    return 1 - np.sum((R-Q@v)**2)/np.sum(R**2)
+
+def total_R_squared_kr_LR(ret, B, K, v, f_list):
+
+    sum = 0
+    ret_2 = 0
+    v_mat = v.reshape(-1,5)
+    
+    for t in range(len(f_list)):
+        pred = np.zeros((len(ret[0]), 1))
+        for i in range(B.shape[1]):
+            pred += (B.T@K[t*100:(t+1)*100,:].T)[i,:].reshape(-1,1)*v_mat[i,:].reshape(1,-1)@f_list[t].reshape(-1,1)
+        sum += np.sum((ret[t+1].values - pred.flatten())**2)
+        ret_2 += np.sum(ret[t+1].values**2)
+        
+    return 1-sum/ret_2
+    
