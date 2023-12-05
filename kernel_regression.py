@@ -138,18 +138,20 @@ def solve_f_LR(ret, v, B, lambda2, data, Omega, K, N):
     f_list_new = []
 
     for t in range(T-1):
-        c = np.linalg.solve(gram_matrix_LR(B, v, t, K, N)+lambda2*Omega, ret[t+1])
-        f_list_new.append(solve_g_kernel_LR(B, v, t, K, N).T@c)
+        G = gram_matrix_LR(B, v, t, K, N)
+        g = solve_g_kernel_LR(B, v, t, K, N)
+        c = np.linalg.solve(G+lambda2*Omega, ret[t+1])
+        f_list_new.append(g.T@c)
 
-    return f_list_new
+    return f_list_new, G, g
 
 def kernel_regression_LR(data, K, B, ret, f_list, lambda1, lambda2, Omega, max_iter, m_hat, N):
 
     for i in range(max_iter):
         print(i)
-        v = solve_v_LR(data, B, ret, f_list, K, lambda1/(2*i+1), Omega, m_hat)
-        f_list = solve_f_LR(ret, v, B, lambda2/(2*i+1), data, Omega, K, N)
+        v = solve_v_LR(data, B, ret, f_list, K, lambda1, Omega, m_hat)
+        f_list, G, g = solve_f_LR(ret, v, B, lambda2, data, Omega, K, N)
 
-    return f_list, v
+    return f_list, v, G, g
 
     
