@@ -15,10 +15,10 @@ def solve_gamma(ret, data, f):
 def ipca(data, ret, gamma, max_iter):
     
     first = False 
-    i = 0
-    while i < max_iter:
+    j = 0
+    while j < max_iter:
 
-        i+=1
+        j+=1
         temp = []
         f_list_new = []
 
@@ -59,10 +59,10 @@ def solve_gamma_reg_w(ret, data, f, lambda_, W, gamma):
 def ipca_reg_w(data, ret, gamma_reg_w, max_iter, lambda1, lambda2, W_list):
 
     first = False 
-    i = 0
-    while i < max_iter:
+    j = 0
+    while j < max_iter:
 
-        i+=1
+        j+=1
         temp = []
         f_list_new = []
 
