@@ -106,7 +106,7 @@ def cross_val_gaussian(y,x, trsh, lambda1_v, lambda2_v, alphas_v, N, f_list_inpu
                 
     return total_R2_dict
 
-def cross_val_gaussian_LR(y,x, trsh, lambda1_v, lambda2_v, alphas_v, N, f_list_input, Omega2, max_iter):
+def cross_val_gaussian_LR(y,x, trsh, lambda1_v, lambda2_v, alphas_v, N, f_list_input, Omega2, max_iter, m_hat):
 
     total_R2_dict = {}
     
