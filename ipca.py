@@ -1,6 +1,20 @@
 import numpy as np
 import pandas as pd
 
+def gamma_first(ret, data, k):    
+    x = []
+    for t in range(len(ret)):
+        x.append(data[t].values.T@ret[t].values/len(ret[0]))
+
+    x_cov = np.sum([x[i].reshape((-1,1))@x[i].reshape((1,-1)) for i in range(len(x))], axis = 0)
+    eigval_x, eigvec_x = np.linalg.eig(x_cov)
+
+    idx = np.argsort(np.abs(eigval_x))[::-1]
+    sort_eigvec_x = eigvec_x[:,idx].real
+    gamma_first = sort_eigvec_x[:,:k]
+
+    return gamma_first
+
 def solve_f(ret, data, gamma, idx):
     # risolve per la singola f poi dobbiamo metterle in una lista
     return np.linalg.solve(gamma.T@data[idx].values.T@data[idx].values@gamma, gamma.T@data[idx].values.T@ret[idx].values)

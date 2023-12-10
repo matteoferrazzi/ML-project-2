@@ -25,11 +25,11 @@ def solve_v_kernel (ret, lambda1, data, f_list, N, Omega, K):
     #compute Q matrix
     T=len(data)
     A=np.array(f_list)@np.array(f_list).T
-    Q=np.zeros([(T-1)*N, (T-1)*N])
-    R=np.array(ret[1:]).flatten()
+    Q=np.zeros([(T)*N, (T)*N])
+    R=np.array(ret).flatten()
 
-    for t in range(0,T-1):
-        for s in range(0,T-1):
+    for t in range(0,T):
+        for s in range(0,T):
             Q[t*100:(t+1)*100,s*100:(s+1)*100]=A[t,s]*K[t*100:(t+1)*100,s*100:(s+1)*100]
     v=np.linalg.solve(Q+lambda1*Omega, R)
 
@@ -39,7 +39,7 @@ def solve_g_kernel(data, f_list, v, t, K):
 
     T=len(data)
 
-    g = np.sum([(K[t*100:(t+1)*100,s*100:(s+1)*100]@v[s*100:(s+1)*100]).reshape(-1,1)@f_list[s].reshape(1,-1) for s in range(0,T-1)], axis=0)#remember that f_list[s] is F_{s+1} 
+    g = np.sum([(K[t*100:(t+1)*100,s*100:(s+1)*100]@v[s*100:(s+1)*100]).reshape(-1,1)@f_list[s].reshape(1,-1) for s in range(0,T)], axis=0)#remember that f_list[s] is F_{s+1} 
     
     return g
 
@@ -53,9 +53,9 @@ def solve_f(ret, v, lambda2, data, f_list, Omega, K):
     T=len(data)
     f_list_new=[]
 
-    for t in range(0,T-1):
+    for t in range(0,T):
         G = Gram_matrix(data, v, f_list, t, K)
-        c = np.linalg.solve(G+lambda2*Omega, ret[t+1])
+        c = np.linalg.solve(G+lambda2*Omega, ret[t])
         g = solve_g_kernel(data, f_list, v, t, K)
         f_list_new.append(g.T@c)
     f_list=f_list_new.copy()
@@ -88,7 +88,7 @@ def pivoted_chol(K, m_hat):
     d = d-L*L
 
     for m in range(1,m_hat):
-        print(m)
+
         p_max = np.argmax(d)
         d_max = d[p_max]
 
