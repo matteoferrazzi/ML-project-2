@@ -36,9 +36,9 @@ def cross_val_IPCA(y,x, trsh, gamma_first, max_iter):
 
     yy_pred = []
 
-    for i in range(len(xx_test)-1):
+    for i in range(len(xx_test)):
 
-        f = ipca.solve_f(yy_test, xx_test, gamma, i+1)
+        f = ipca.solve_f(yy_test, xx_test, gamma, i)
         yy_pred.append(f)
 
     total_R2_dict[('IPCA')] = metrics.total_R_squared(yy_test, xx_test, gamma, yy_pred)
@@ -60,9 +60,9 @@ def cross_val_IPCA_reg(y,x, trsh, lambda1_v, lambda2_v, gamma_first, max_iter, W
 
             yy_pred = []
 
-            for i in range(len(xx_test)-1):
+            for i in range(len(xx_test)):
 
-                f = ipca.solve_f_reg_w(yy_test, xx_test, gamma_reg_w, i+1, lambda1, W_list[i])
+                f = ipca.solve_f_reg_w(yy_test, xx_test, gamma_reg_w, i, lambda1, W_list[i])
                 yy_pred.append(f)
 
             total_R2_dict[('IPCA_reg', lambda1, lambda2)] = metrics.total_R_squared(yy_test, xx_test, gamma_reg_w, yy_pred)
@@ -75,8 +75,8 @@ def cross_val_gaussian(y,x, trsh, lambda1_v, lambda2_v, alphas_v, N, f_list_inpu
     total_R2_dict = {}
     
     xx_train,yy_train,xx_test,yy_test = split_dataset(x,y, trsh)
-    Omega_test = np.eye((len(xx_test)-1)*N)
-    Omega_train = np.eye((len(xx_train)-1)*N)
+    Omega_test = np.eye(len(xx_test)*N)
+    Omega_train = np.eye(len(xx_train)*N)
 
     for alpha in alphas_v:
 
@@ -85,26 +85,90 @@ def cross_val_gaussian(y,x, trsh, lambda1_v, lambda2_v, alphas_v, N, f_list_inpu
         data2_test = xx_test.copy()
         data2_test = np.array(np.array(data2_test).reshape(len(xx_test)*N,94))
         K_train = kr.K_LR(data2_train, 1, alpha)
+        K_test_train = kr.Kernel(data2_test, data2_train, 1, alpha)
         K_test = kr.K_LR(data2_test, 1, alpha)
+        print('start cycle')
+        
 
         for lambda1 in lambda1_v:
             for lambda2 in lambda2_v:
-                f_list, Q, v, g, G = kr.kernel_regression(xx_train, yy_train, f_list_input.copy(), lambda1, lambda2, Omega_train, Omega2, max_iter, N, K_train)
+                f_list, v, _, _, _ = kr.kernel_regression(xx_train, yy_train, f_list_input.copy(), lambda1, lambda2, Omega_train, Omega2, max_iter, N, K_train)
 
                 yy_pred = []
-                for t in range(0,len(xx_test)-1):
+                g_list = []
+                c_list = []
+    
+                for t in range(0,len(xx_test)):
 
-                    c = np.linalg.solve(G+lambda2*Omega2, yy_test[t+1])
+                    g = kr.solve_g_kernel(xx_train, f_list, v, t, K_test_train)
+                    G = g@g.T
+
+                    g_list.append(g)
+
+                    c = np.linalg.solve(G+lambda2*Omega2, yy_test[t])
+
+                    c_list.append(c)
                     print('done1')
                     yy_pred.append(g.T@c)
 
                 print('done')
 
-                vt, Qt = kr.solve_v_kernel(yy_test, lambda1, xx_test, yy_pred, N, Omega_test, K_test)
+                #vt, Qt = kr.solve_v_kernel(yy_test, lambda1, xx_test, yy_pred, N, Omega_test, K_test)
 
-                total_R2_dict[('Gaussian', lambda1, lambda2, alpha)] = metrics.total_R_squared_kr(yy_test, Qt, vt)
+                total_R2_dict[('Gaussian', lambda1, lambda2, alpha)] = metrics.total_R_squared_kr_out_os(yy_test, g_list, c_list)
                 
     return total_R2_dict
+
+def cross_val_linear(y,x, trsh, lambda1_v, lambda2_v, N, f_list_input, Omega2, max_iter):
+
+    total_R2_dict = {}
+    
+    xx_train,yy_train,xx_test,yy_test = split_dataset(x,y, trsh)
+    Omega_test = np.eye(len(xx_test)*N)
+    Omega_train = np.eye(len(xx_train)*N)
+
+    data2_train = xx_train.copy()
+    data2_train = np.array(np.array(data2_train).reshape(len(xx_train)*N,94)) #flatten data, build X
+    data2_test = xx_test.copy()
+    data2_test = np.array(np.array(data2_test).reshape(len(xx_test)*N,94))
+    K_train = kr.K_LR(data2_train, 0, 1)
+    K_test_train = kr.Kernel(data2_test, data2_train, 0, 1)
+    K_test = kr.K_LR(data2_test, 0, 1)
+    print('start cycle')
+
+    g_list = []
+    
+
+    for lambda1 in lambda1_v:
+        for lambda2 in lambda2_v:
+            f_list, v, _, _, _ = kr.kernel_regression(xx_train, yy_train, f_list_input.copy(), lambda1, lambda2, Omega_train, Omega2, max_iter, N, K_train)
+
+            yy_pred = []
+
+            g_list = []
+            c_list = []
+            for t in range(0,len(xx_test)):
+
+                g = kr.solve_g_kernel(xx_train, f_list, v, t, K_test_train)
+                G = g@g.T
+
+                g_list.append(g)
+
+                c = np.linalg.solve(G+lambda2*Omega2, yy_test[t])
+
+                c_list.append(c)
+
+                print('done1')
+                yy_pred.append(g.T@c)
+
+            print('done')
+
+            #vt, Qt = kr.solve_v_kernel(yy_test, lambda1, xx_test, yy_pred, N, Omega_test, K_test)
+
+            total_R2_dict[('Linear', lambda1, lambda2)] = metrics.total_R_squared_kr_out_os(yy_test, g_list, c_list)
+                
+    return total_R2_dict
+
 
 def cross_val_gaussian_LR(y,x, trsh, lambda1_v, lambda2_v, alphas_v, N, f_list_input, Omega2, max_iter, m_hat):
 
@@ -143,3 +207,4 @@ def cross_val_gaussian_LR(y,x, trsh, lambda1_v, lambda2_v, alphas_v, N, f_list_i
                 total_R2_dict[('Gaussian', lambda1, lambda2, alpha)] = metrics.total_R_squared_kr_LR(yy_test, B_test, K_test, vt, yy_pred)
                 
     return total_R2_dict
+
