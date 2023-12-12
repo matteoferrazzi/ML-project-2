@@ -8,7 +8,7 @@ def standardize(df):
 def fill_missing(df):
     return df.fillna(0)
 
-def download_clean_data(folder_path, date, N):
+def download_clean_data(folder_path, start_date,ending_date, N):
     files = os.listdir(folder_path)
 
     datasets = []
@@ -16,7 +16,9 @@ def download_clean_data(folder_path, date, N):
     for file in files:
         if file == '.DS_Store':
             continue
-        if int(file[15:23]) < date:
+        if int(file[15:23]) < start_date:
+            continue
+        if int(file[15:23]) > ending_date:
             continue
         df = pd.read_csv(folder_path + '/' + file,  encoding='utf-8')
         df['name'] = file
@@ -25,7 +27,7 @@ def download_clean_data(folder_path, date, N):
     datasets.sort(key=lambda x: x['name'][0])
 
     macro = pd.read_csv('Data/macro_data_amit_goyal.csv', encoding='utf-8')
-    macro = macro[macro['yyyymm']>int(str(date)[:-2])]
+    macro = macro[(macro['yyyymm']>int(str(start_date)[:-2]))&(macro['yyyymm']>int(str(ending_date)[:-2]))]
 
     data = []
     ret = []
