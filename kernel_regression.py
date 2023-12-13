@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-def Kernel(x,xt, tk, l=1):
+def Kernel(x, xt, tk, l=1, alpha=1):
     #x is a 1x94 or a 100x94
     #xt is always 100x94
 
@@ -16,9 +16,16 @@ def Kernel(x,xt, tk, l=1):
             K[i]=np.exp(-np.sum((xt-x[i])**2, axis=1)/(2*l**2))
         return K
     
-def K_LR(data2, tk, l):
+    #Rational Quadratic
+    if tk==2:
+        K=np.zeros([x.shape[0], xt.shape[0]])
+        for i in range(0,x.shape[0]):
+            K[i]=(1+np.sum((xt-x[i])**2, axis=1)/(2*alpha*l**2))**(-alpha)
+        return K
+    
+def K_LR(data2, tk, l=1, alpha=1):
 
-    return Kernel(data2, data2, tk, l)
+    return Kernel(data2, data2, tk, l, alpha)
     
 def solve_v_kernel (ret, lambda1, data, f_list, N, Omega, K):
     #f is a list
