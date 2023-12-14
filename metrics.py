@@ -39,7 +39,6 @@ def total_R_squared_kr_out_os(ret, g_list, c_list):
 
         f_hat = g_list[t].T@(c_list[t].reshape(-1,1))
 
-
         for i in range(l): 
 
             sum += (ret[t].iloc[i] - (g_list[t]@f_hat)[i])**2

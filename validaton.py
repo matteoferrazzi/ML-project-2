@@ -27,12 +27,10 @@ def split_dataset(x,y, trsh):
 def val_IPCA(y,x, trsh, gamma_first, max_iter):
 
     total_R2_dict = {}
-    pred_R2_dict = {}
     
     xx_train,yy_train,xx_test,yy_test = split_dataset(x,y, trsh)
 
     gamma, _ = ipca.ipca(xx_train, yy_train, gamma_first.copy(), max_iter)
-    print('done')
 
     yy_pred = []
 
@@ -42,14 +40,12 @@ def val_IPCA(y,x, trsh, gamma_first, max_iter):
         yy_pred.append(f)
 
     total_R2_dict[('IPCA')] = metrics.total_R_squared(yy_test, xx_test, gamma, yy_pred)
-    pred_R2_dict[('IPCA')] = metrics.pred_R_squared(yy_test, xx_test, gamma, yy_pred)
 
-    return total_R2_dict, pred_R2_dict
+    return total_R2_dict
 
 def val_IPCA_reg(y,x, trsh, lambda1_v, lambda2_v, gamma_first, max_iter, W_list):
 
     total_R2_dict = {}
-    pred_R2_dict = {}
     
     xx_train,yy_train,xx_test,yy_test = split_dataset(x,y, trsh)
 
